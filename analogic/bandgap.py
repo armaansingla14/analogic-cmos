@@ -10,12 +10,23 @@
                        |           |
                       Q2 (Nx)     Q3 (1x)
 
-The PMOS-input op-amp forces V(A) = V(B), so the branch current is
+The op-amp forces V(A) = V(B), so the branch current is
 I = V_T ln(N) / R1 (PTAT) and
 
     VREF = V_EB3 + (R2 / R1) V_T ln(N).
 
-The op-amp tail is mirrored from the same gate line, making the core fully
+Two op-amp variants are provided:
+
+* ``pmos``   - 5T PMOS-input op-amp sensing A and B directly. Its output is
+               referenced to ground, so the gate line (which must track
+               VDD - Vsg) needs a differential input change of dVDD / A_ol:
+               poor line regulation / PSRR. Kept as the baseline.
+* ``nmos_ls``- 5T NMOS-input op-amp sensing level-shifted nodes A' = A + I R3
+               and B' = B + I R3 (equal R3 in both branches keeps A = B).
+               The output is referenced to VDD through the PMOS mirror load,
+               so the gate line tracks the supply naturally.
+
+The op-amp tail is derived from the same gate line, making the core fully
 self-biased; a three-transistor start-up circuit removes the zero-current
 state. ``R2`` is chosen either from the first-order equation or by a
 two-point slope trim (see :func:`trim_r2`).
@@ -38,13 +49,15 @@ class BandgapSizing:
     n_ratio: int = 8
     r1: float = 10.8e3
     r2: float = 110e3
-    wm: float = 4e-6    # mirror PMOS
-    lm: float = 2e-6
-    win: float = 8e-6   # op-amp input pair (PMOS)
-    lin: float = 1e-6
-    wl: float = 2e-6    # op-amp NMOS load
+    wm: float = 16e-6   # mirror PMOS
+    lm: float = 4e-6
+    win: float = 16e-6  # op-amp input pair
+    lin: float = 2e-6
+    wl: float = 2e-6    # op-amp NMOS load (pmos) / NMOS tail mirror (nmos_ls)
     ll: float = 2e-6
     cc: float = 2e-12   # compensation on the gate line
+    opamp: str = "nmos_ls"
+    r3: float = 50e3    # level-shift resistors (nmos_ls only)
 
     def as_dict(self):
         return asdict(self)
@@ -67,12 +80,35 @@ def bandgap_core(p: Process, s: BandgapSizing) -> str:
         _pnp(p, "Q2", "e2", s.n_ratio),
         p.res("R2", "vref", "e3", s.r2, w_um=2.0, l_um=s.r2 / 1000 * 2.0),
         _pnp(p, "Q3", "e3", 1),
-        "* --- self-biased PMOS-input op-amp (+ = b, - = a, out = pg) ---",
-        mm("Mt", "tail", "pg", "vdd", "vdd", "p", 2 * s.wm, s.lm),
-        mm("Mi1", "d1", "b", "tail", "vdd", "p", s.win, s.lin),
-        mm("Mi2", "pg", "a", "tail", "vdd", "p", s.win, s.lin),
-        mm("Ml1", "d1", "d1", "0", "0", "n", s.wl, s.ll),
-        mm("Ml2", "pg", "d1", "0", "0", "n", s.wl, s.ll),
+    ]
+    if s.opamp == "pmos":
+        lines += [
+            "* --- self-biased PMOS-input op-amp (+ = b, - = a, out = pg) ---",
+            mm("Mt", "tail", "pg", "vdd", "vdd", "p", 2 * s.wm, s.lm),
+            mm("Mi1", "d1", "b", "tail", "vdd", "p", s.win, s.lin),
+            mm("Mi2", "pg", "a", "tail", "vdd", "p", s.win, s.lin),
+            mm("Ml1", "d1", "d1", "0", "0", "n", s.wl, s.ll),
+            mm("Ml2", "pg", "d1", "0", "0", "n", s.wl, s.ll),
+        ]
+    elif s.opamp == "nmos_ls":
+        # Ma/Mb now drive a3/b3; R3 level-shifts down to a/b.
+        lines[1] = mm("Ma", "a3", "pg", "vdd", "vdd", "p", s.wm, s.lm)
+        lines[2] = mm("Mb", "b3", "pg", "vdd", "vdd", "p", s.wm, s.lm)
+        lines += [
+            p.res("R3a", "a3", "a", s.r3, w_um=2.0, l_um=s.r3 / 1000 * 2.0),
+            p.res("R3b", "b3", "b", s.r3, w_um=2.0, l_um=s.r3 / 1000 * 2.0),
+            "* --- self-biased NMOS-input op-amp (+ = b3, - = a3, out = pg) ---",
+            mm("Mbp", "nb", "pg", "vdd", "vdd", "p", s.wm, s.lm),
+            mm("Mbn", "nb", "nb", "0", "0", "n", s.wl, s.ll),
+            mm("Mt", "tail", "nb", "0", "0", "n", 2 * s.wl, s.ll),
+            mm("Mi1", "d1", "b3", "tail", "0", "n", s.win, s.lin),
+            mm("Mi2", "pg", "a3", "tail", "0", "n", s.win, s.lin),
+            mm("Ml1", "d1", "d1", "vdd", "vdd", "p", s.wm, s.lm),
+            mm("Ml2", "pg", "d1", "vdd", "vdd", "p", s.wm, s.lm),
+        ]
+    else:
+        raise ValueError(s.opamp)
+    lines += [
         f"Cc pg vdd {s.cc}",
         "* --- start-up ---",
         mm("Msw", "su", "0", "vdd", "vdd", "p", 0.5e-6, 20e-6),
@@ -94,43 +130,95 @@ def _pnp(p: Process, name: str, emitter: str, area: float) -> str:
     return f"{name} 0 0 {emitter} vpnp area={a:.6g}"
 
 
-def bench_temp(name: str, p: Process, s: BandgapSizing, vdd=1.8,
-               t0=-40.0, t1=125.0, dt=5.0) -> str:
-    body = bandgap_core(p, s) + f"VDD vdd 0 dc {vdd}\n.nodeset v(pg)=1.0\n"
-    ctrl = f"""dc temp {t0} {t1} {dt}
-let iq = -i(VDD)
-wrdata {name}_temp.dat v(vref) v(a) v(b) iq
+NODESET = ".nodeset v(pg)=0.9 v(vref)=1.2\n"
+STATE_NODES = ("pg", "a", "b", "vref", "e2", "e3", "su", "tail", "d1")
+STATE_NODES_LS = ("a3", "b3", "nb")
+
+
+def _state_nodes(core: str) -> tuple[str, ...]:
+    return STATE_NODES + (STATE_NODES_LS if " a3 " in core else ())
+
+
+def bench_startup(name: str, core: str, temp=27.0, vdd=1.8, t_ramp=2e-6, t_stop=20e-6) -> str:
+    """Supply ramp from 0 V; also dumps the settled node voltages."""
+    nodes = " ".join(f"v({n})" for n in _state_nodes(core))
+    body = core + f".temp {temp}\nVDD vdd 0 pwl(0 0 {t_ramp} {vdd})\n"
+    ctrl = f"""tran 5n {t_stop} 0 20n uic
+wrdata {name}_start.dat v(vref) v(vdd)
+wrdata {name}_state.dat {nodes}
 """
     return wrap(name, body, ctrl)
 
 
-def bench_line(name: str, p: Process, s: BandgapSizing, temp=27.0) -> str:
-    body = bandgap_core(p, s) + f".temp {temp}\nVDD vdd 0 dc 1.8 ac 1\n.nodeset v(pg)=1.0\n"
-    ctrl = f"""dc VDD 1.4 2.2 0.02
-wrdata {name}_line.dat v(vref)
-op
+def _nodeset(state: dict | None) -> str:
+    if not state:
+        return NODESET
+    return ".nodeset " + " ".join(f"v({k})={v:.6g}" for k, v in state.items()) + "\n"
+
+
+def bench_temp(name: str, core: str, vdd=1.8, state: dict | None = None,
+               t0=-40.0, t1=125.0, dt=5.0, t_mid=25.0) -> str:
+    """Temperature sweep run outward from ``t_mid`` in two halves.
+
+    The first DC point is seeded (``.nodeset``) with the node voltages of a
+    start-up transient at ``t_mid`` and each later point continues from the
+    previous solution. Without this, the DC solver can land on a
+    non-physical high-current solution that a transient start-up never
+    reaches.
+    """
+    body = core + f"VDD vdd 0 dc {vdd}\n" + _nodeset(state)
+    ctrl = f"""dc temp {t_mid} {t1} {dt}
+let iq = -i(VDD)
+wrdata {name}_hot.dat v(vref) v(a) v(b) iq
+dc temp {t_mid} {t0} {-dt}
+let iq = -i(VDD)
+wrdata {name}_cold.dat v(vref) v(a) v(b) iq
+"""
+    return wrap(name, body, ctrl)
+
+
+def _merge_halves(hot: dict, cold: dict) -> dict:
+    return {k: np.concatenate([cold[k][::-1], hot[k][1:]]) for k in hot}
+
+
+def bench_line(name: str, core: str, temp=27.0, state: dict | None = None) -> str:
+    body = core + f".temp {temp}\nVDD vdd 0 dc 1.8 ac 1\n" + _nodeset(state)
+    ctrl = f"""op
 ac dec 10 1 100Meg
 let ps = v(vref)
 wrdata {name}_psrr.dat ps
+dc VDD 1.8 2.2 0.02
+wrdata {name}_lineup.dat v(vref)
+dc VDD 1.8 1.4 -0.02
+wrdata {name}_linedn.dat v(vref)
 """
     return wrap(name, body, ctrl)
 
 
-def bench_startup(name: str, p: Process, s: BandgapSizing, temp=27.0, vdd=1.8) -> str:
-    body = bandgap_core(p, s) + f".temp {temp}\nVDD vdd 0 pwl(0 0 2u {vdd})\n"
-    ctrl = f"""tran 5n 20u 0 20n uic
-wrdata {name}_start.dat v(vref) v(vdd)
-"""
-    return wrap(name, body, ctrl)
+def settled_states(sim: NgSpice, cores: dict[str, tuple[str, float]], temp=25.0) -> dict:
+    """Run start-up transients and return the final node voltages per tag."""
+    jobs = {f"{tag}_su": bench_startup(f"{tag}_su", core, temp, vdd) for tag, (core, vdd) in cores.items()}
+    res = sim.run(jobs)
+    out = {}
+    for tag in cores:
+        tb = res[f"{tag}_su"].table(f"{tag}_su_state.dat")
+        out[tag] = {k[2:-1]: float(v[-1]) for k, v in tb.items() if k.startswith("v(")}
+    return out
 
 
 def run_temp(sim: NgSpice, items: dict[str, tuple[Process, BandgapSizing, float]]) -> dict:
-    """Batch temperature sweeps. items: tag -> (process, sizing, vdd)."""
-    jobs = {tag: bench_temp(tag, p, s, vdd) for tag, (p, s, vdd) in items.items()}
+    """Batch temperature sweeps. items: tag -> (process, sizing, vdd).
+
+    Each netlist is generated exactly once so the start-up transient and the
+    sweep see the same mismatch draw.
+    """
+    cores = {tag: (bandgap_core(p, s), vdd) for tag, (p, s, vdd) in items.items()}
+    states = settled_states(sim, cores)
+    jobs = {tag: bench_temp(tag, core, vdd, states[tag]) for tag, (core, vdd) in cores.items()}
     res = sim.run(jobs)
     out = {}
     for tag in items:
-        t = res[tag].table(f"{tag}_temp.dat")
+        t = _merge_halves(res[tag].table(f"{tag}_hot.dat"), res[tag].table(f"{tag}_cold.dat"))
         temp, v = t["temp-sweep"], t["v(vref)"]
         i27 = int(np.argmin(np.abs(temp - 27.5)))
         out[tag] = {
@@ -139,26 +227,24 @@ def run_temp(sim: NgSpice, items: dict[str, tuple[Process, BandgapSizing, float]
             "tc_ppm": tempco_ppm(temp, v),
             "iq27_ua": float(t["iq"][i27] * 1e6),
             "slope27_uv_per_c": float(np.gradient(v, temp)[i27] * 1e6),
+            "startup_vref": states[tag].get("vref", float("nan")),
         }
     return out
 
 
-def trim_r2(sim: NgSpice, s: BandgapSizing, vdd: float = 1.8, iters: int = 2) -> BandgapSizing:
-    """Secant trim of R2 so that dVREF/dT = 0 at the centre of the range.
+def trim_r2(sim: NgSpice, s: BandgapSizing, vdd: float = 1.8, span: float = 0.04,
+            points: int = 11, rounds: int = 2) -> BandgapSizing:
+    """Pick R2 that minimizes the measured box-method tempco (TT, no mismatch).
 
-    This mimics a production trim step: the slope at ~40 degC is measured
-    at two R2 values and R2 is linearly interpolated (VREF slope is affine
-    in R2 to first order). Done at TT, no mismatch.
+    Mimics a production trim: a grid of R2 values around the hand-design
+    value is simulated, the best one is kept, and the grid is refined.
     """
-    centre = 42.5
-    def slope(r2):
-        res = run_temp(sim, {"trim": (Process.at("tt"), replace(s, r2=r2), vdd)})["trim"]
-        g = np.gradient(res["vref"], res["temp"])
-        return float(np.interp(centre, res["temp"], g))
-    ra, rb = s.r2, s.r2 * 1.05
-    sa, sb = slope(ra), slope(rb)
-    for _ in range(iters):
-        rc = rb - sb * (rb - ra) / (sb - sa)
-        ra, sa = rb, sb
-        rb, sb = rc, slope(rc)
-    return replace(s, r2=float(rb))
+    centre = s.r2
+    for _ in range(rounds):
+        grid = centre * (1 + np.linspace(-span, span, points))
+        items = {f"trim{i}": (Process.at("tt"), replace(s, r2=float(r)), vdd) for i, r in enumerate(grid)}
+        res = run_temp(sim, items)
+        tcs = [res[f"trim{i}"]["tc_ppm"] for i in range(points)]
+        centre = float(grid[int(np.argmin(tcs))])
+        span = span * 2.5 / (points - 1)
+    return replace(s, r2=centre)
