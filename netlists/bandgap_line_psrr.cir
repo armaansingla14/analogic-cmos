@@ -1,0 +1,47 @@
+* bandgap_line_psrr
+.include cmos180_approx.lib
+.options savecurrents=0
+
+* --- PTAT/CTAT core ---
+Ma a3 pg vdd vdd pch w=1.6e-05 l=4e-06 m=1 delvto=-0 mulu0=1
+Mb b3 pg vdd vdd pch w=1.6e-05 l=4e-06 m=1 delvto=-0 mulu0=1
+Mc vref pg vdd vdd pch w=1.6e-05 l=4e-06 m=1 delvto=-0 mulu0=1
+Q1 0 0 a vpnp area=1
+R1 b e2 10800 tc1=-1.2e-3 tc2=1.0e-6
+Q2 0 0 e2 vpnp area=8
+R2 vref e3 106900 tc1=-1.2e-3 tc2=1.0e-6
+Q3 0 0 e3 vpnp area=1
+R3a a3 a 50000 tc1=-1.2e-3 tc2=1.0e-6
+R3b b3 b 50000 tc1=-1.2e-3 tc2=1.0e-6
+* --- self-biased NMOS-input op-amp (+ = b3, - = a3, out = pg) ---
+Mbp nb pg vdd vdd pch w=1.6e-05 l=4e-06 m=1 delvto=-0 mulu0=1
+Mbn nb nb 0 0 nch w=2e-06 l=2e-06 m=1 delvto=0 mulu0=1
+Mt tail nb 0 0 nch w=4e-06 l=2e-06 m=1 delvto=0 mulu0=1
+Mi1 d1 b3 tail 0 nch w=1.6e-05 l=2e-06 m=1 delvto=0 mulu0=1
+Mi2 pg a3 tail 0 nch w=1.6e-05 l=2e-06 m=1 delvto=0 mulu0=1
+Ml1 d1 d1 vdd vdd pch w=1.6e-05 l=4e-06 m=1 delvto=-0 mulu0=1
+Ml2 pg d1 vdd vdd pch w=1.6e-05 l=4e-06 m=1 delvto=-0 mulu0=1
+Cc pg vdd 2e-12
+* --- start-up ---
+Msw su 0 vdd vdd pch w=5e-07 l=2e-05 m=1 delvto=-0 mulu0=1
+Msd su vref 0 0 nch w=2e-06 l=5e-07 m=1 delvto=0 mulu0=1
+Mst pg su 0 0 nch w=5e-07 l=2e-06 m=1 delvto=0 mulu0=1
+.temp 27.0
+VDD vdd 0 dc 1.8 ac 1
+.nodeset v(pg)=0.9 v(vref)=1.2
+
+.control
+set wr_vecnames
+set wr_singlescale
+option numdgt=10
+op
+ac dec 10 1 100Meg
+let ps = v(vref)
+wrdata bandgap_line_psrr_psrr.dat ps
+dc VDD 1.8 2.2 0.02
+wrdata bandgap_line_psrr_lineup.dat v(vref)
+dc VDD 1.8 1.4 -0.02
+wrdata bandgap_line_psrr_linedn.dat v(vref)
+
+.endc
+.end

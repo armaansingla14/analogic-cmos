@@ -1,0 +1,40 @@
+* ota_ac
+.include cmos180_approx.lib
+.options savecurrents=0
+
+.subckt ota inp inn out vdd vss
+Ib vdd nb dc 2e-05
+M8 nb nb vss vss nch w=4e-06 l=1e-06 m=1 delvto=0 mulu0=1
+M5 tail nb vss vss nch w=8e-06 l=1e-06 m=1 delvto=0 mulu0=1
+M1 x inn tail vss nch w=8e-06 l=5e-07 m=1 delvto=0 mulu0=1
+M2 y inp tail vss nch w=8e-06 l=5e-07 m=1 delvto=0 mulu0=1
+M3 x x vdd vdd pch w=4e-06 l=5e-07 m=1 delvto=-0 mulu0=1
+M4 y x vdd vdd pch w=4e-06 l=5e-07 m=1 delvto=-0 mulu0=1
+M6 out y vdd vdd pch w=3.2e-05 l=5e-07 m=1 delvto=-0 mulu0=1
+M7 out nb vss vss nch w=3.2e-05 l=1e-06 m=1 delvto=0 mulu0=1
+Rz y z 1500
+Cc z out 1e-12
+.ends ota
+.temp 27.0
+VDD vdd 0 dc 1.8
+VSS vss 0 dc 0
+
+Vin inp 0 dc 0.9 ac 1
+Lfb out inn 1e9
+Cfb inn 0 1
+CL out 0 2e-12
+X1 inp inn out vdd vss ota
+
+.control
+set wr_vecnames
+set wr_singlescale
+option numdgt=10
+op
+let vout_dc = v(out)
+print vout_dc
+ac dec 40 1 10G
+let h = v(out)
+wrdata ota_ac_ac.dat h
+
+.endc
+.end

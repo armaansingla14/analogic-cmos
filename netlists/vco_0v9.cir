@@ -1,0 +1,48 @@
+* vco_0v9
+.include cmos180_approx.lib
+.options savecurrents=0
+
+* control-voltage to PMOS bias replica
+Mbn vbp vctrl 0 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Mbp vbp vbp vdd vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mps0 sp0 vbp vdd vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mp0 n1 n0 sp0 vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mn0 n1 n0 sn0 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Mns0 sn0 vctrl 0 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Cl0 n1 0 1.5e-14
+Mps1 sp1 vbp vdd vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mp1 n2 n1 sp1 vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mn1 n2 n1 sn1 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Mns1 sn1 vctrl 0 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Cl1 n2 0 1.5e-14
+Mps2 sp2 vbp vdd vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mp2 n3 n2 sp2 vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mn2 n3 n2 sn2 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Mns2 sn2 vctrl 0 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Cl2 n3 0 1.5e-14
+Mps3 sp3 vbp vdd vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mp3 n4 n3 sp3 vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mn3 n4 n3 sn3 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Mns3 sn3 vctrl 0 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Cl3 n4 0 1.5e-14
+Mps4 sp4 vbp vdd vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mp4 n0 n4 sp4 vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mn4 n0 n4 sn4 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Mns4 sn4 vctrl 0 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Cl4 n0 0 1.5e-14
+.temp 27.0
+VDD vdd 0 dc 1.8
+Vc vctrl 0 dc 0.9
+.ic v(n0)=0 v(n1)=1.8
+
+.control
+set wr_vecnames
+set wr_singlescale
+option numdgt=10
+tran 5p 6e-08 0 5p uic
+let iavg = -i(VDD)
+linearize v(n0) iavg
+wrdata vco_0v9_osc.dat v(n0) iavg
+
+.endc
+.end

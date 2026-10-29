@@ -1,0 +1,3 @@
+arch,nom_inl_lsb,nom_dnl_lsb,mc_n,mc_inl_mean,mc_inl_worst,mc_dnl_mean,mc_dnl_worst,mc_monotonic_frac,glitch_nom_fVs,sfdr_nom_dbc,sfdr_mc_mean_dbc
+binary,0.00011532,6.59091e-06,30,0.0971057,0.158707,0.122532,0.266324,1,835.24,61.0766,60.8406
+segmented,0.000115003,6.58128e-06,30,0.113618,0.222915,0.0777457,0.14651,1,846.328,61.0766,60.9838

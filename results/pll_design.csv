@@ -1,0 +1,2 @@
+fref_mhz,n_div,fout_mhz,icp_ua,kvco_mhz_per_v,vctrl_lock_v,r_kohm,c1_pf,c2_pf,fc_lin_mhz,pm_lin_deg
+25,16,400,50,947.88,0.972911,2.85656,166.347,12.867,1.25,60

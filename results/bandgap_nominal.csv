@@ -1,0 +1,5 @@
+design,r2,r2_kohm,vref_27c_v,tempco_ppm_per_c,iq_27c_ua,line_reg_mv_per_v,psrr_dc_db,psrr_1mhz_db
+baseline_pmos_opamp,untrim,108.433,1.24713,7.68193,26.2734,nan,nan,nan
+baseline_pmos_opamp,trim,108.433,1.24713,7.68193,26.2734,69.5666,24.9436,27.1586
+improved_nmos_ls_opamp,untrim,108.433,1.23405,21.6046,30.5994,nan,nan,nan
+improved_nmos_ls_opamp,trim,106.911,1.22649,8.54874,30.5998,3.27706,51.8414,36.6733

@@ -1,0 +1,2 @@
+dc_gain_db,f3db_hz,ugb_hz,pm_deg,gm_db,offset_mv,idd_ua,vn_1k_nv,vn_1m_nv,vn_int_1_100m_uv,slew_v_per_us,settle_1pct_ns,psrr_db_dc,cmrr_db_dc
+80.1153,5016.92,4.3136e+07,58.9958,29.5253,-0.0446867,220.558,2151.07,68.8623,377.447,38.5819,26.348,83.3038,73.2799

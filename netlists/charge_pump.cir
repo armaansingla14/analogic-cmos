@@ -1,0 +1,33 @@
+* charge_pump
+.include cmos180_approx.lib
+.options savecurrents=0
+
+Icp vdd nbias dc 5e-05
+Mb1 nbias nbias 0 0 nch w=4e-06 l=1e-06 m=1 delvto=0 mulu0=1
+Mb2 pbias nbias 0 0 nch w=4e-06 l=1e-06 m=1 delvto=0 mulu0=1
+Mb3 pbias pbias vdd vdd pch w=1e-05 l=1e-06 m=1 delvto=-0 mulu0=1
+Mup sp pbias vdd vdd pch w=1e-05 l=1e-06 m=1 delvto=-0 mulu0=1
+Mswp vctrl upb sp vdd pch w=2.5e-06 l=1.8e-07 m=1 delvto=-0 mulu0=1
+Mswn vctrl dn sn 0 nch w=1e-06 l=1.8e-07 m=1 delvto=0 mulu0=1
+Mdn sn nbias 0 0 nch w=4e-06 l=1e-06 m=1 delvto=0 mulu0=1
+.temp 27.0
+VDD vdd 0 dc 1.8
+Vupb upb 0 dc 0
+Vdn dn 0 dc 0
+Vout vctrl 0 dc 0.9
+
+.control
+set wr_vecnames
+set wr_singlescale
+option numdgt=10
+dc Vout 0 1.8 0.02
+let iup = i(Vout)
+wrdata charge_pump_up.dat iup
+alter Vupb dc = 1.8
+alter Vdn dc = 1.8
+dc Vout 0 1.8 0.02
+let idn = -i(Vout)
+wrdata charge_pump_dn.dat idn
+
+.endc
+.end
