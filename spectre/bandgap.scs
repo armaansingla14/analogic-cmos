@@ -1,0 +1,40 @@
+// Bandgap reference (NMOS-input op-amp with level-shift resistors) - Spectre syntax.
+// NOT RUN in this repository. Replace models with a real PDK (incl. its vertical PNP).
+simulator lang=spectre
+global 0
+parameters vdd_val=1.8 r1=10.8k r2=106.9k r3=50k n=8
+include "pdk_models.scs" section=tt   // placeholder
+
+VDD (vdd 0) vsource dc=vdd_val mag=1
+Ma  (a3 pg vdd vdd)   pch w=16u l=4u
+Mb  (b3 pg vdd vdd)   pch w=16u l=4u
+Mc  (vref pg vdd vdd) pch w=16u l=4u
+R3a (a3 a) resistor r=r3
+R3b (b3 b) resistor r=r3
+Q1  (0 0 a)  vpnp area=1
+R1  (b e2)   resistor r=r1
+Q2  (0 0 e2) vpnp area=n
+R2  (vref e3) resistor r=r2
+Q3  (0 0 e3) vpnp area=1
+// self-biased NMOS-input op-amp (+ = b3, - = a3, out = pg)
+Mbp (nb pg vdd vdd)   pch w=16u l=4u
+Mbn (nb nb 0 0)       nch w=2u  l=2u
+Mt  (tail nb 0 0)     nch w=4u  l=2u
+Mi1 (d1 b3 tail 0)    nch w=16u l=2u
+Mi2 (pg a3 tail 0)    nch w=16u l=2u
+Ml1 (d1 d1 vdd vdd)   pch w=16u l=4u
+Ml2 (pg d1 vdd vdd)   pch w=16u l=4u
+Cc  (pg vdd) capacitor c=2p
+// start-up
+Msw (su 0 vdd vdd)    pch w=0.5u l=20u
+Msd (su vref 0 0)     nch w=2u   l=0.5u
+Mst (pg su 0 0)       nch w=0.5u l=2u
+
+ic pg=0.9 vref=1.2
+tsweep dc param=temp start=-40 stop=125 step=5
+line   dc dev=VDD param=dc start=1.4 stop=2.2 step=0.02
+psrr   ac start=1 stop=100M dec=10
+start  tran stop=20u
+mc montecarlo numruns=200 seed=5000 variations=mismatch {
+    tmc dc param=temp start=-40 stop=125 step=5
+}

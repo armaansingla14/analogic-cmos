@@ -1,0 +1,45 @@
+// Two-stage Miller OTA testbench - Spectre syntax.
+// NOT RUN in this repository. Replace the model include with a real PDK.
+simulator lang=spectre
+global 0
+parameters vdd_val=1.8 vcm=0.9 cl=2p cc=1p rz=1.5k ib=20u
+include "pdk_models.scs" section=tt   // placeholder
+
+subckt ota inp inn out vdd vss
+    Ib  (vdd nb)        isource dc=ib
+    M8  (nb nb vss vss)     nch w=4u  l=1u
+    M5  (tail nb vss vss)   nch w=8u  l=1u
+    M1  (x inn tail vss)    nch w=8u  l=0.5u
+    M2  (y inp tail vss)    nch w=8u  l=0.5u
+    M3  (x x vdd vdd)       pch w=4u  l=0.5u
+    M4  (y x vdd vdd)       pch w=4u  l=0.5u
+    M6  (out y vdd vdd)     pch w=32u l=0.5u
+    M7  (out nb vss vss)    nch w=32u l=1u
+    Rz  (y z)   resistor r=rz
+    Cc  (z out) capacitor c=cc
+ends ota
+
+VDD (vdd 0) vsource dc=vdd_val
+VSS (vss 0) vsource dc=0
+VIN (inp 0) vsource dc=vcm mag=1
+X1  (inp inn out vdd vss) ota
+// Loop broken for AC with an iprobe; stb gives loop gain / phase margin.
+PRB (out fb) iprobe
+RFB (fb inn) resistor r=1
+CL  (out 0) capacitor c=cl
+
+dcop  dc   oppoint=rawfile
+loop  stb  start=1 stop=10G dec=40 probe=PRB
+acol  ac   start=1 stop=10G dec=40
+nz    noise start=1 stop=100M dec=20 oprobe=out iprobe=VIN
+step  tran stop=1u maxstep=0.2n
+
+// Monte Carlo over mismatch (requires statistics blocks in the PDK).
+mc montecarlo numruns=200 seed=1000 variations=mismatch savefamilyplots=yes {
+    dcmc dc
+    stbmc stb start=1 stop=10G dec=20 probe=PRB
+}
+
+// PVT: alter temperature and supply; corner sections switched with altergroup.
+t_cold alter param=temp value=-40
+t_hot  alter param=temp value=125

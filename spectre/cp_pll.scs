@@ -1,0 +1,22 @@
+// Charge pump + loop filter + current-starved VCO - Spectre syntax.
+// NOT RUN in this repository. PFD and divider are expected as Verilog-A.
+simulator lang=spectre
+global 0
+include "pdk_models.scs" section=tt   // placeholder
+ahdl_include "pfd.va"                 // placeholder Verilog-A PFD
+ahdl_include "divider.va"             // placeholder Verilog-A divide-by-N
+
+VDD (vdd 0) vsource dc=1.8
+ICP (vdd nbias) isource dc=50u
+Mb1 (nbias nbias 0 0) nch w=4u l=1u
+Mb2 (pbias nbias 0 0) nch w=4u l=1u
+Mb3 (pbias pbias vdd vdd) pch w=10u l=1u
+Mup (sp pbias vdd vdd) pch w=10u l=1u
+Mswp (vctrl upb sp vdd) pch w=2.5u l=0.18u
+Mswn (vctrl dn sn 0) nch w=1u l=0.18u
+Mdn (sn nbias 0 0) nch w=4u l=1u
+Rlf (vctrl v1) resistor r=2.857k
+C1  (v1 0) capacitor c=166.3p
+C2  (vctrl 0) capacitor c=12.87p
+// 5-stage current-starved ring: see analogic/pll.py vco_netlist for sizing
+lock tran stop=10u maxstep=10p

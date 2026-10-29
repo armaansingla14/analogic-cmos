@@ -1,0 +1,29 @@
+// Current-steering DAC unit cell and 4+4 segmented array skeleton - Spectre syntax.
+// NOT RUN in this repository.
+simulator lang=spectre
+global 0
+include "pdk_models.scs" section=tt   // placeholder
+parameters iunit=4u rl=400 vcas=1.2
+
+subckt dac_cell outp outn g gb vbn vcas
+parameters m=1
+    Mcs (c vbn 0 0)     nch w=1.5u l=6u   m=m
+    Mca (d vcas c 0)    nch w=1u   l=0.5u m=m
+    Msp (outn g d 0)    nch w=0.5u l=0.18u m=m
+    Msn (outp gb d 0)   nch w=0.5u l=0.18u m=m
+ends dac_cell
+
+VDD  (vdd 0) vsource dc=1.8
+VCAS (vcas 0) vsource dc=vcas
+IREF (vdd vbn) isource dc=iunit
+MREF (vbn vbn 0 0) nch w=1.5u l=6u
+RLP  (vdd outp) resistor r=rl
+RLN  (vdd outn) resistor r=rl
+// LSB cells (binary, m = 1, 2, 4, 8) and 15 thermometer cells (m = 16);
+// gate drives come from a Verilog-A/AMS decoder or vector file.
+L0 (outp outn g0 gb0 vbn vcas) dac_cell m=1
+L1 (outp outn g1 gb1 vbn vcas) dac_cell m=2
+L2 (outp outn g2 gb2 vbn vcas) dac_cell m=4
+L3 (outp outn g3 gb3 vbn vcas) dac_cell m=8
+// T0..T14 instantiated by the netlister with m=16
+ramp tran stop=5.2u
