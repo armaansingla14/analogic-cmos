@@ -1,0 +1,13 @@
+[project]
+name = "analogic-cmos"
+version = "0.1.0"
+description = "CMOS analog building blocks (OTA, bandgap, current-steering DAC, CP-PLL) simulated with ngspice"
+requires-python = ">=3.10"
+dependencies = ["numpy", "scipy", "matplotlib", "pandas"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["spice: tests that invoke ngspice (native or docker)"]
